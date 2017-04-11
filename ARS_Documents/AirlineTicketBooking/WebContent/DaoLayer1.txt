@@ -1,0 +1,205 @@
+package com.cg.ARS.daos;
+
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.annotation.Resource;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Query;
+import javax.persistence.RollbackException;
+import javax.persistence.TypedQuery;
+
+import org.springframework.stereotype.Repository;
+
+import com.cg.ARS.dto.Airport;
+import com.cg.ARS.dto.BookingInformation;
+import com.cg.ARS.dto.FlightInfo;
+import com.cg.ARS.dto.UserClass;
+import com.cg.ARS.exceptions.BookingExceptions;
+import com.cg.ARS.util.JndiUtil;
+import com.cg.appl.entities.Dept;
+import com.cg.appl.entities.Emp;
+import com.cg.appl.entities.Trainee;
+import com.cg.appl.exceptions.EmpException;
+import com.cg.appl.exceptions.HrException;
+
+
+@Repository("bookingDao")
+public class BookingDaoImpl implements BookingDao {
+	private EntityManagerFactory factory;
+	
+	@Resource(name="entityMFactory")
+	public void setEntityMFactory(EntityManagerFactory factory)
+	{
+		this.factory=factory;
+	}
+	
+
+	@Override
+	public BookingInformation showBookingDetails(String bookId) throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+		BookingInformation booking=manager.find(BookingInformation.class, bookId);
+		return booking;
+	}
+
+
+	@Override
+ 	public boolean updateFlightSeatQuantity(String flightno, int noofpassengers,String seattype) throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+		boolean xSeat;
+		TypedQuery<FlightInfo> qry= manager.createNamedQuery("searchBySrcDest", FlightInfo.class);	//write the named query chinmay
+		qry.setParameter("flightno", flightno);
+		qry.setParameter("noOfPassengers", noofpassengers);
+		qry.setParameter("seatType", seattype);
+		FlightInfo fare=qry.getSingleResult();
+ 		if(seatype=="Business")
+ 		{
+ 			xSeat=fare.getBussseats();
+ 			return true;
+ 		}
+ 		else if(seatType=="First"){
+ 			xSeat=fare.getFirstseats();
+ 			return true;
+ 		}
+ 		else{
+ 			return false;
+ 		}
+ 	}
+ 	
+	
+	
+	
+
+	@Override
+	public boolean updateFlightInfo(FlightInfo info) throws BookingExceptions {
+	EntityManager manager=factory.createEntityManager();
+			try {
+				manager.getTransaction().begin();
+				manager.merge(info);
+				
+				manager.getTransaction().commit(); 
+				return true;
+			} catch (RollbackException e) {
+				throw new BookingExceptions("Failed: Booking Updation.",e);
+			}
+	}
+
+	@Override
+	public boolean deleteFlight(String no) throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+				try {
+					FlightInfo info=new FlightInfo();
+					manager.getTransaction().begin();
+					info=showBookingDetails(no);
+				//	System.out.println(""+no);		
+					manager.remove(no);	
+					manager.getTransaction().commit(); 
+				//	System.out.println("deleted"+no);	
+					return true;
+				} catch (RollbackException | BookingExceptions e) {
+					throw new BookingExceptions("Failed: Name Updation.",e);
+				}
+				
+			}
+	
+	}
+
+	@Override
+	public FlightInfo insertFlightDetails(FlightInfo flight) throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+			try {
+				manager.getTransaction().begin();
+				manager.persist(flight);
+				manager.getTransaction().commit();
+			} catch (RollbackException e) {
+				// TODO Auto-generated catch block
+				throw new BookingExceptions("record not commited",e);
+			}
+			return flight;
+	   
+	}
+
+	@Override
+	public UserClass insertUsers(UserClass users) throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+		try {
+			manager.getTransaction().begin();
+			manager.persist(users);
+			manager.getTransaction().commit();
+		} catch (RollbackException e) {
+			// TODO Auto-generated catch block
+			throw new BookingExceptions("record not commited",e);
+		}
+		return users;
+   
+}
+	
+
+	@Override
+	public List<FlightInfo> searchBySrcDest(String src, String dest) throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+		TypedQuery<FlightInfo> qry= manager.createNamedQuery("searchBySrcDest", FlightInfo.class);	//write the named query chinmay
+		qry.setParameter("from", src);
+		qry.setParameter("to", dest);
+		return qry.getResultList();
+	}
+
+
+	@Override
+ 	public int getSeatFare(String flightno,int noofpassengers,String seatType) throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+		int xFare;
+		TypedQuery<FlightInfo> qry= manager.createNamedQuery("searchBySrcDest", FlightInfo.class);	//write the named query chinmay
+		qry.setParameter("flightno", flightno);
+		qry.setParameter("noOfPassengers", noofpassengers);
+		qry.setParameter("seatType", seatType);
+		FlightInfo fare=qry.getSingleResult();
+ 		if(seatType=="Business")
+ 		{
+ 			xFare=fare.getBussseatfare();
+ 			return xFare;
+ 		}
+ 		else if(seatType=="First"){
+ 			xFare=fare.getFirstseatfare();
+ 			return xFare;
+ 		}
+ 	}
+	
+	@Override
+	public List<FlightInfo> showFlightByDate(Date date)throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+		Query qry=manager.createNamedQuery("showFlightByDateQuery",FlightInfo.class);
+		
+		return qry.getResultList();
+	}
+
+	@Override
+	public String showBookingId(String email) throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+		BookingInformation booking =manager.find(BookingInformation.class, email);
+		if(email==null){
+			throw new BookingExceptions("Wrong bookingId");
+		}
+		return booking;
+		
+	}
+
+
+	
+	
+	
+	@Override
+	public List<BookingInformation> showPassengerList(String flightno)
+			throws BookingExceptions {
+		EntityManager manager=factory.createEntityManager();
+		TypedQuery<BookingInformation> qry= manager.createNamedQuery("showPassengerList", BookingInformation.class);	//write the named query chinmay
+		qry.setParameter("flightno", flightno);
+		return qry.getResultList();
+	}
+
